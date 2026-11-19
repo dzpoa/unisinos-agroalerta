@@ -1,6 +1,10 @@
 # AgroAlerta — rede colaborativa de alerta de chuva para produtores rurais
 
-Projeto final da disciplina de **Internet das Coisas e Inteligência Artificial** (UNISINOS).
+Projeto final da disciplina **Internet das Coisas e Aplicações de IA (Big Data)** — UNISINOS
+Professores: Cristiano Costa e Rodrigo Righi
+
+**Integrantes:** Alexsander Corvello da Silveira · Daniel Zander · Eder da Silva Paz ·
+Matheus Teixeira Rohde · Rafael Augusto da Silva
 
 Propriedades rurais da **Fronteira Oeste e Campanha (RS)** compartilham leituras de suas estações
 meteorológicas (pressão, temperatura, umidade, chuva e vento) via **MQTT**. Um modelo de **IA
@@ -46,13 +50,20 @@ flowchart LR
 
 ## Pré-requisitos
 
-- **Python 3.11 ou mais novo**
+- **Python 3.11 ou mais novo** — confira com `python3 --version` (Windows: `py --version`).
+  macOS: `brew install python@3.12` · Linux: `sudo apt install python3 python3-venv` ·
+  Windows: [python.org/downloads](https://www.python.org/downloads/) (marque *Add python.exe to PATH*)
+- **Git** — [git-scm.com](https://git-scm.com/downloads) (no macOS já vem com as ferramentas de desenvolvedor)
 - **Mosquitto** (broker MQTT) e a **biblioteca OpenMP** (usada pelo LightGBM):
 
 | | macOS | Linux (Debian/Ubuntu) | Windows |
 |---|---|---|---|
 | Mosquitto | `brew install mosquitto` | `sudo apt install mosquitto` | instalador em [mosquitto.org/download](https://mosquitto.org/download/) |
 | OpenMP | `brew install libomp` | `sudo apt install libgomp1` | já vem com o LightGBM (requer o Visual C++ Redistributable) |
+
+> **macOS sem Homebrew?** Instale com
+> `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
+> e rode as duas linhas que o instalador mostrar no final (elas colocam o `brew` no PATH).
 
 > **Não deixe o Mosquitto rodando como serviço**: o `iniciar.py` sobe o broker com a configuração do
 > projeto e precisa da porta 1883 livre. No Windows, o instalador cria o serviço *Mosquitto Broker*:
@@ -67,7 +78,7 @@ PostgreSQL (ou TimescaleDB, recomendado em produção), basta definir `DATABASE_
 **macOS / Linux**
 
 ```bash
-git clone <url-do-repositorio>
+git clone https://github.com/dzpoa/unisinos-agroalerta.git
 cd unisinos-agroalerta
 python3 -m venv .venv
 source .venv/bin/activate
@@ -77,7 +88,7 @@ pip install -r requirements.txt
 **Windows (PowerShell)**
 
 ```powershell
-git clone <url-do-repositorio>
+git clone https://github.com/dzpoa/unisinos-agroalerta.git
 cd unisinos-agroalerta
 py -m venv .venv
 .venv\Scripts\Activate.ps1
@@ -102,8 +113,10 @@ python iniciar.py
 
 O script confere os pré-requisitos, sobe os quatro serviços e os acompanha: se algum parar, ele
 mostra o final do log e encerra tudo. **Ctrl+C** encerra a plataforma. Os logs ficam em `logs/`.
+Se faltar algo (Mosquitto, OpenMP, porta 1883 ocupada), ele diz o que instalar ou fazer.
 
-Abra o dashboard em **http://localhost:8501**.
+Abra o dashboard em **http://localhost:8501**. Ele mostra *"Aguardando dados da rede"* até o
+simulador começar — isso é o esperado.
 
 **Terminal 2 — rede simulada:**
 
@@ -117,6 +130,12 @@ python -m servicos.simulador --listar-eventos 10
 # Tempestade sintética cruzando a região de oeste para leste
 python -m servicos.simulador --modo sintetico
 ```
+
+**O que esperar:** as primeiras 24 horas do replay são o *aquecimento* (histórico para os atributos)
+e passam em segundos; o motor de alertas leva **cerca de 25–30 s** para processá-las. Depois, cada
+hora simulada leva 3 s: no mapa, as estações mudam de cor conforme o risco; por volta de
+30/04 08h UTC, Santa Maria entra em alerta. A aba *Série por estação* mostra o risco previsto e a
+chuva observada.
 
 Opções úteis: `--segundos-por-hora 3` (velocidade da demo), `--ruido 0.3` (ruído de sensor barato),
 `--aquecimento 24` (horas iniciais enviadas rapidamente para formar o histórico dos atributos).
@@ -145,18 +164,42 @@ python -m ia.treinar             # gera modelos/, métricas e gráficos em relat
 
 ## 4. ESP32 no Wokwi
 
-1. Em [wokwi.com](https://wokwi.com), crie um projeto **ESP32** e substitua `sketch.ino` e `diagram.json`
-   pelos arquivos de `firmware/wokwi/`; adicione as bibliotecas de `libraries.txt` (aba *Library Manager*).
-2. Ajuste `PREFIXO` no firmware para o mesmo valor de `MQTT_PREFIXO` e de `infra/mosquitto.conf`.
-3. Inicie a simulação. O ESP32 publica a cada 10 s no broker público **test.mosquitto.org**; a ponte
-   do Mosquitto local entrega as mensagens ao sistema (e devolve os alertas ao ESP32).
-   Se o test.mosquitto.org estiver fora do ar, use **broker.emqx.io** — troque em `infra/mosquitto.conf`
-   (`address`) e no firmware (`MQTT_HOST`).
-4. **Interação na demo:** ajuste temperatura/umidade no DHT22, gire o potenciômetro (pressão) e clique no
-   botão azul (pluviômetro: 0,2 mm por pulso). Quando o motor emite alerta para Santa Maria, o **LED
-   vermelho** acende e o **buzzer** toca.
+Com a plataforma rodando (passo 2):
+
+1. Abra o projeto pronto: **https://wokwi.com/projects/481142156492081153** e clique em **▶**.
+   A primeira compilação leva de 30 s a alguns minutos.
+2. No **Serial Monitor** (parte de baixo) devem aparecer `Conectando ao Wi-Fi... ok`,
+   `Conectando ao broker MQTT... ok` e, a cada 10 s, uma linha `[envio] {...}`.
+3. No dashboard, a aba **Dispositivo ESP32** passa a mostrar temperatura, umidade e pressão.
+4. Rode o replay (passo 2, terminal 2). Após o aquecimento, chega uma linha `[risco] Santa Maria: ...`
+   a cada hora simulada; quando há alerta, o **LED vermelho** acende e o **buzzer** toca.
+
+**Interação na demo:** durante a simulação, clique no **DHT22** para mudar temperatura/umidade, gire o
+**potenciômetro** (pressão, 990–1025 hPa) e clique no **botão azul** (pluviômetro: 0,2 mm por pulso).
 
 > O Wokwi não tem sensor barométrico; o potenciômetro emula a saída de um BMP280/BME280.
+> Logo ao conectar, o ESP32 recebe a última mensagem de risco guardada no broker (mensagem *retida*):
+> é o estado da execução anterior, comportamento esperado.
+
+Como funciona: o ESP32 publica no broker público **test.mosquitto.org** (o Wokwi não alcança o
+`localhost`); a ponte do Mosquitto local traz as leituras para o sistema e devolve os alertas ao ESP32.
+
+<details>
+<summary>Montar o projeto do zero no Wokwi (alternativa ao link)</summary>
+
+1. Abra https://wokwi.com/projects/new/esp32.
+2. Substitua o conteúdo das abas `sketch.ino` e `diagram.json` pelos arquivos de `firmware/wokwi/`.
+3. Na aba **Library Manager**, adicione: `PubSubClient`, `ArduinoJson`, `DHT sensor library` e
+   `Adafruit Unified Sensor`.
+4. Clique em **▶**.
+</details>
+
+> **Vários integrantes rodando ao mesmo tempo:** todos usam o mesmo prefixo de tópicos
+> (`unisinos-agroalerta`) no broker público, então as leituras do ESP32 de um aparecem no sistema do
+> outro, e o LED de um pode acender pelo alerta do outro. Para testes independentes (ou no dia da
+> gravação), use um prefixo próprio, igual nos três lugares: `MQTT_PREFIXO` no `.env`, as linhas
+> `topic` de `infra/mosquitto.conf` e `PREFIXO` no `sketch.ino` (neste caso, use a montagem do zero
+> ou faça uma cópia do projeto no Wokwi com *Save a copy*).
 
 ## 5. Modelo de IA
 
@@ -200,6 +243,17 @@ está antes. Em Santa Maria, os atributos mais importantes são a chuva recente 
 - O ingestor aplica uma **lista branca de campos**; qualquer outro é descartado antes de gravar.
 - Isto é **pseudonimização**, não anonimização (art. 12 da LGPD): em áreas rurais pouco povoadas, uma
   célula pode corresponder a uma única propriedade.
+
+## Problemas comuns
+
+| Sintoma | Causa provável / solução |
+|---|---|
+| `iniciar.py` diz que a porta 1883 está em uso | Outro Mosquitto rodando (serviço ou execução anterior). Veja a nota em *Pré-requisitos*. |
+| `iniciar.py` diz que o LightGBM não carregou | Falta a biblioteca OpenMP (`brew install libomp` no macOS, `sudo apt install libgomp1` no Linux). |
+| Dashboard fica em *"Aguardando dados"* com o simulador rodando | Aguarde o aquecimento (~30 s). Se persistir, veja `logs/motor.log` e `logs/ingestor.log`. |
+| ESP32 envia, mas a aba *Dispositivo ESP32* fica vazia | A ponte com o broker público não conectou. Rode `grep -i bridge logs/mosquitto.log`: deve aparecer só *Connecting bridge*, sem *disconnected*/*backoff*. |
+| A ponte cai repetidamente | Teste o acesso: `nc -vz -w 5 test.mosquitto.org 1883`. Se falhar, troque para `broker.emqx.io` em `infra/mosquitto.conf` (`address`) e no firmware (`MQTT_HOST`). |
+| LED acende sem o replay estar rodando | Mensagem retida da execução anterior, ou outro integrante rodando ao mesmo tempo (veja a nota no passo 4). |
 
 ## Tópicos MQTT
 
