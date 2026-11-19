@@ -1,0 +1,66 @@
+x-app: &app
+  build: .
+  env_file: .env
+  environment:
+    MQTT_HOST: mosquitto
+    DATABASE_URL: postgresql://agro:agro@db:5432/agroalerta
+  volumes:
+    - ./dados:/app/dados
+    - ./modelos:/app/modelos
+    - ./relatorios:/app/relatorios
+  depends_on:
+    db:
+      condition: service_healthy
+    mosquitto:
+      condition: service_started
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports: ["1883:1883"]
+    volumes:
+      - ./infra/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: agro
+      POSTGRES_PASSWORD: agro
+      POSTGRES_DB: agroalerta
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agro -d agroalerta"]
+      interval: 3s
+      retries: 20
+
+  ingestor:
+    <<: *app
+    command: python -m servicos.ingestor
+    restart: unless-stopped
+
+  motor:
+    <<: *app
+    command: python -m servicos.motor_alertas
+    restart: unless-stopped
+
+  dashboard:
+    <<: *app
+    command: streamlit run dashboard/app.py --server.address 0.0.0.0 --server.headless true
+    ports: ["8501:8501"]
+    restart: unless-stopped
+
+  # Executados sob demanda: docker compose run --rm ia ... / docker compose run --rm simulador ...
+  ia:
+    <<: *app
+    profiles: ["ferramentas"]
+    depends_on: []
+    command: python -m ia.treinar
+
+  simulador:
+    <<: *app
+    profiles: ["ferramentas"]
+    depends_on:
+      mosquitto:
+        condition: service_started
+    entrypoint: ["python", "-m", "servicos.simulador"]
+    command: ["--modo", "sintetico"]

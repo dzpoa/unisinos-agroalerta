@@ -1,0 +1,11 @@
+{
+  "limiar_mm": 5.0,
+  "horizonte_h": 3,
+  "ano_teste": 2024,
+  "pr_auc_medio": {
+    "lgbm_local": 0.4614,
+    "lgbm_vizinhos": 0.5722,
+    "persistencia": 0.3262
+  },
+  "ganho_medio_pr_auc_vizinhos_vs_local": 0.1108
+}
