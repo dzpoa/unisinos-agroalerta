@@ -6,6 +6,20 @@ import os
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
+
+
+def _carregar_env(arquivo: Path) -> None:
+    """Lê o .env (CHAVE=valor); variáveis já definidas no ambiente têm prioridade."""
+    if not arquivo.exists():
+        return
+    for linha in arquivo.read_text(encoding="utf-8").splitlines():
+        linha = linha.strip()
+        if linha and not linha.startswith("#") and "=" in linha:
+            chave, _, valor = linha.partition("=")
+            os.environ.setdefault(chave.strip(), valor.strip().strip('"').strip("'"))
+
+
+_carregar_env(RAIZ / ".env")
 DIR_BRUTOS = RAIZ / "dados" / "brutos"
 DIR_PROCESSADOS = RAIZ / "dados" / "processados"
 DIR_MODELOS = RAIZ / "modelos"

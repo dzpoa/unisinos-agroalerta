@@ -46,37 +46,66 @@ flowchart LR
 
 ## Pré-requisitos
 
-- **Python 3.11+**
-- **Mosquitto** (broker MQTT). macOS: `brew install mosquitto` · Linux: `sudo apt install mosquitto` ·
-  Windows: instalador em [mosquitto.org/download](https://mosquitto.org/download/)
+- **Python 3.11 ou mais novo**
+- **Mosquitto** (broker MQTT) e a **biblioteca OpenMP** (usada pelo LightGBM):
+
+| | macOS | Linux (Debian/Ubuntu) | Windows |
+|---|---|---|---|
+| Mosquitto | `brew install mosquitto` | `sudo apt install mosquitto` | instalador em [mosquitto.org/download](https://mosquitto.org/download/) |
+| OpenMP | `brew install libomp` | `sudo apt install libgomp1` | já vem com o LightGBM (requer o Visual C++ Redistributable) |
+
+> **Não deixe o Mosquitto rodando como serviço**: o `iniciar.py` sobe o broker com a configuração do
+> projeto e precisa da porta 1883 livre. No Windows, o instalador cria o serviço *Mosquitto Broker*:
+> pare-o em `services.msc` (ou `Stop-Service mosquitto` no PowerShell como administrador) e, se quiser,
+> mude a inicialização para *Manual*.
 
 O banco é **SQLite**, criado automaticamente em `dados/agroalerta.db` — nada a instalar. Para usar
 PostgreSQL (ou TimescaleDB, recomendado em produção), basta definir `DATABASE_URL` no `.env`.
 
 ## 1. Instalação
 
+**macOS / Linux**
+
 ```bash
 git clone <url-do-repositorio>
-cd iot-agro-alerta-colaborativo
+cd unisinos-agroalerta
 python3 -m venv .venv
-source .venv/bin/activate            # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env                 # opcional: os padrões já funcionam
 ```
+
+**Windows (PowerShell)**
+
+```powershell
+git clone <url-do-repositorio>
+cd unisinos-agroalerta
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+> Se o PowerShell bloquear o `Activate.ps1`, rode antes:
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+
+Opcional: copie `.env.example` para `.env` para mudar configurações (os padrões já funcionam).
 
 ## 2. Executar a demo
 
 Os modelos já treinados com os dados reais estão em `modelos/`, então não é preciso baixar dados.
+Em todos os comandos abaixo, o ambiente virtual deve estar ativado (o prompt começa com `(.venv)`).
 
-**Terminal 1 — plataforma** (Mosquitto, ingestor, motor de alertas e dashboard; Ctrl+C encerra tudo):
+**Terminal 1 — plataforma** (Mosquitto, ingestor, motor de alertas e dashboard):
 
 ```bash
-./iniciar.sh
+python iniciar.py
 ```
 
-Abra o dashboard em **http://localhost:8501**. Os logs de cada serviço ficam em `logs/`.
+O script confere os pré-requisitos, sobe os quatro serviços e os acompanha: se algum parar, ele
+mostra o final do log e encerra tudo. **Ctrl+C** encerra a plataforma. Os logs ficam em `logs/`.
 
-**Terminal 2 — rede simulada** (com o ambiente virtual ativado):
+Abra o dashboard em **http://localhost:8501**.
+
+**Terminal 2 — rede simulada:**
 
 ```bash
 # Temporal real de 30/04/2024 (início das enchentes de maio no RS)
@@ -91,10 +120,6 @@ python -m servicos.simulador --modo sintetico
 
 Opções úteis: `--segundos-por-hora 3` (velocidade da demo), `--ruido 0.3` (ruído de sensor barato),
 `--aquecimento 24` (horas iniciais enviadas rapidamente para formar o histórico dos atributos).
-
-> **Windows:** o `iniciar.sh` exige bash (Git Bash ou WSL). Alternativa: abrir um terminal para cada
-> comando — `mosquitto -c infra/mosquitto.conf`, `python -m servicos.ingestor`,
-> `python -m servicos.motor_alertas` e `streamlit run dashboard/app.py`.
 
 ## 3. Retreinar com os dados do INMET (opcional)
 
