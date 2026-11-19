@@ -24,7 +24,7 @@
 // ---------- Configuração (mesmo prefixo do .env do projeto) ----------
 const char* WIFI_SSID   = "Wokwi-GUEST";
 const char* WIFI_SENHA  = "";
-const char* MQTT_HOST   = "broker.hivemq.com";
+const char* MQTT_HOST   = "test.mosquitto.org";  // alternativa: broker.emqx.io
 const int   MQTT_PORTA  = 1883;
 const char* PREFIXO     = "unisinos-agroalerta";
 const char* CELULA_H3   = "87a976cc3ffffff";   // propriedade próxima a Santa Maria (res. 7)

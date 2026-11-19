@@ -16,7 +16,7 @@ flowchart LR
         ESP["ESP32 no Wokwi<br/>DHT22 + pluviômetro"]
     end
     subgraph Nuvem["Plataforma"]
-        HIVE[("HiveMQ<br/>(público)")]
+        HIVE[("Broker público<br/>test.mosquitto.org")]
         MQ[("Mosquitto")]
         ING["Ingestor<br/>lista branca LGPD"]
         DB[("SQLite /<br/>PostgreSQL")]
@@ -42,7 +42,7 @@ flowchart LR
 | `dashboard/app.py` | Mapa ao vivo, séries por estação, ESP32, métricas do modelo e privacidade |
 | `firmware/wokwi/` | Firmware do ESP32 (simulado no Wokwi): publica leituras e reage aos alertas |
 | `comum/` | Configuração, banco, parser do INMET, atributos e pseudonimização (compartilhados) |
-| `infra/` | Configuração do Mosquitto (com ponte para o HiveMQ) |
+| `infra/` | Configuração do Mosquitto (com ponte para o broker público) |
 
 ## Pré-requisitos
 
@@ -148,7 +148,10 @@ python -m ia.treinar             # gera modelos/, métricas e gráficos em relat
 1. Em [wokwi.com](https://wokwi.com), crie um projeto **ESP32** e substitua `sketch.ino` e `diagram.json`
    pelos arquivos de `firmware/wokwi/`; adicione as bibliotecas de `libraries.txt` (aba *Library Manager*).
 2. Ajuste `PREFIXO` no firmware para o mesmo valor de `MQTT_PREFIXO` e de `infra/mosquitto.conf`.
-3. Inicie a simulação. O ESP32 publica a cada 10 s no HiveMQ; a ponte do Mosquitto entrega ao sistema.
+3. Inicie a simulação. O ESP32 publica a cada 10 s no broker público **test.mosquitto.org**; a ponte
+   do Mosquitto local entrega as mensagens ao sistema (e devolve os alertas ao ESP32).
+   Se o test.mosquitto.org estiver fora do ar, use **broker.emqx.io** — troque em `infra/mosquitto.conf`
+   (`address`) e no firmware (`MQTT_HOST`).
 4. **Interação na demo:** ajuste temperatura/umidade no DHT22, gire o potenciômetro (pressão) e clique no
    botão azul (pluviômetro: 0,2 mm por pulso). Quando o motor emite alerta para Santa Maria, o **LED
    vermelho** acende e o **buzzer** toca.
