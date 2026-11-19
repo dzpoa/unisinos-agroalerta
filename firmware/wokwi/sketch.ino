@@ -118,6 +118,8 @@ void setup() {
   mqtt.setServer(MQTT_HOST, MQTT_PORTA);
   mqtt.setCallback(aoReceber);
   mqtt.setBufferSize(512);
+  mqtt.setKeepAlive(60);      // padrão da PubSubClient é 15 s; brokers públicos podem derrubar antes
+  mqtt.setSocketTimeout(10);
 }
 
 void loop() {

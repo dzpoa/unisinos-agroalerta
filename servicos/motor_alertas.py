@@ -49,7 +49,8 @@ def janela(ts: pd.Timestamp, cel_para_cod: dict) -> pd.DataFrame:
     return largo.reindex(index=grade, columns=todas)
 
 
-def processar(ts: pd.Timestamp, modelos: dict, est: dict, celulas: dict, cliente) -> None:
+def processar(ts: pd.Timestamp, modelos: dict, est: dict, celulas: dict, cliente, publicar: bool = True) -> None:
+    """Calcula o risco da hora `ts`; publica no MQTT só se `publicar` (evita rajadas no aquecimento)."""
     largo = janela(ts, {v: k for k, v in celulas.items()})
     agora = datetime.now(timezone.utc).isoformat()
     linhas, alertas = [], []
@@ -61,16 +62,19 @@ def processar(ts: pd.Timestamp, modelos: dict, est: dict, celulas: dict, cliente
         estado = {"codigo": cod, "nome": est[cod]["nome"], "celula_h3": celulas[cod], "ts": ts.isoformat(),
                   "probabilidade": round(prob, 3), "alerta": bool(alerta),
                   "horizonte_h": pacote["horizonte_h"], "limiar_mm": pacote["limiar_mm"]}
-        cliente.publish(f"{PREFIXO}/risco/{cod}", json.dumps(estado), qos=1, retain=True)
+        if publicar:
+            cliente.publish(f"{PREFIXO}/risco/{cod}", json.dumps(estado), qos=1, retain=True)
         if alerta:
             estado["mensagem"] = (f"Risco de chuva forte (≥{pacote['limiar_mm']:g} mm) em até "
                                   f"{pacote['horizonte_h']}h na região de {est[cod]['nome']}: "
                                   "recolha o maquinário e suspenda a pulverização.")
-            cliente.publish(f"{PREFIXO}/alertas/estacao/{cod}", json.dumps(estado, ensure_ascii=False), qos=1)
+            if publicar:
+                cliente.publish(f"{PREFIXO}/alertas/estacao/{cod}", json.dumps(estado, ensure_ascii=False), qos=1)
             alertas.append(f"{est[cod]['nome']} ({prob:.0%})")
     db.executar_varios("INSERT INTO previsoes (ts, calculado_em, codigo, celula_h3, probabilidade, limiar, alerta) "
                        "VALUES (?, ?, ?, ?, ?, ?, ?)", linhas)
-    print(f"[motor] {ts:%Y-%m-%d %H:%M} UTC  " + (f"ALERTA: {', '.join(alertas)}" if alertas else "sem alertas"))
+    sufixo = "" if publicar else "  (histórico: não publicado no MQTT)"
+    print(f"[motor] {ts:%Y-%m-%d %H:%M} UTC  " + (f"ALERTA: {', '.join(alertas)}" if alertas else "sem alertas") + sufixo)
 
 
 def main() -> None:
@@ -95,11 +99,12 @@ def main() -> None:
             completas = db.consultar("SELECT ts, COUNT(DISTINCT celula_h3) AS n FROM leituras "
                                      "WHERE fonte = 'simulador' AND ts = ? GROUP BY ts", (mais_recente.isoformat(),))
             pronto_recente = not completas.empty and completas["n"].iloc[0] >= len(celulas)
-            for ts in sorted(pendentes):
-                # Uma hora é processada quando está completa ou quando já chegou uma hora posterior.
-                if ts < mais_recente or pronto_recente:
-                    processar(ts, modelos, est, celulas, cliente)
-                    pendentes.discard(ts)
+            # Uma hora é processada quando está completa ou quando já chegou uma hora posterior.
+            prontas = [ts for ts in sorted(pendentes) if ts < mais_recente or pronto_recente]
+            for ts in prontas:
+                # Com várias horas acumuladas (aquecimento), só a mais recente vai para os dispositivos.
+                processar(ts, modelos, est, celulas, cliente, publicar=(ts == prontas[-1]))
+                pendentes.discard(ts)
         time.sleep(INTERVALO_S)
 
 

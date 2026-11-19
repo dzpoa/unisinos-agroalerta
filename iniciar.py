@@ -12,6 +12,7 @@ import importlib
 import os
 import platform
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -106,6 +107,9 @@ def main() -> None:
             except subprocess.TimeoutExpired:
                 proc.kill()
         sys.exit(codigo)
+
+    if hasattr(signal, "SIGTERM"):  # encerramento via kill (macOS/Linux) também derruba os serviços
+        signal.signal(signal.SIGTERM, lambda *_: encerrar(0))
 
     print("Iniciando AgroAlerta:")
     try:
