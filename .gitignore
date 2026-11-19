@@ -1,31 +1,13 @@
-# Python
 __pycache__/
-*.py[cod]
-.venv/
-venv/
-.ipynb_checkpoints/
-
-# Configuração local (segredos)
+*.pyc
 .env
-.streamlit/secrets.toml
-
-# Dados brutos e processados do INMET (grandes; cada um baixa os seus)
+.venv/
 dados/brutos/*
 !dados/brutos/.gitkeep
 dados/processados/*
 !dados/processados/.gitkeep
-
-# Banco local (SQLite)
-dados/*.db
-dados/*.db-*
-
-# Sistema operacional / IDEs
-.DS_Store
-__MACOSX/
-Thumbs.db
-.vscode/
+dados/*.db*
+.streamlit/secrets.toml
+logs/
 .idea/
-
-# Wokwi / PlatformIO (se usarem a extensão do VS Code)
-.pio/
-firmware/wokwi/build/
+.DS_Store

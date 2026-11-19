@@ -19,7 +19,7 @@ flowchart LR
         HIVE[("HiveMQ<br/>(público)")]
         MQ[("Mosquitto")]
         ING["Ingestor<br/>lista branca LGPD"]
-        DB[("TimescaleDB")]
+        DB[("SQLite /<br/>PostgreSQL")]
         MOT["Motor de alertas<br/>LightGBM"]
         DASH["Dashboard<br/>Streamlit"]
     end
@@ -46,15 +46,68 @@ flowchart LR
 
 ## Pré-requisitos
 
-- **Com Docker (recomendado):** Docker e Docker Compose.
-- **Sem Docker:** Python 3.11+ e um broker MQTT local (ex.: [Mosquitto](https://mosquitto.org/download/)).
-  O banco é SQLite (criado automaticamente em `dados/agroalerta.db`).
+- **Python 3.11+**
+- **Mosquitto** (broker MQTT). macOS: `brew install mosquitto` · Linux: `sudo apt install mosquitto` ·
+  Windows: instalador em [mosquitto.org/download](https://mosquitto.org/download/)
 
-## 1. Dados do INMET
+O banco é **SQLite**, criado automaticamente em `dados/agroalerta.db` — nada a instalar. Para usar
+PostgreSQL (ou TimescaleDB, recomendado em produção), basta definir `DATABASE_URL` no `.env`.
 
-1. Acesse **portal.inmet.gov.br/dadoshistoricos** e baixe os arquivos anuais de **2015 a 2024**.
+## 1. Instalação
+
+```bash
+git clone <url-do-repositorio>
+cd iot-agro-alerta-colaborativo
+python3 -m venv .venv
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env                 # opcional: os padrões já funcionam
+```
+
+## 2. Executar a demo
+
+Os modelos já treinados com os dados reais estão em `modelos/`, então não é preciso baixar dados.
+
+**Terminal 1 — plataforma** (Mosquitto, ingestor, motor de alertas e dashboard; Ctrl+C encerra tudo):
+
+```bash
+./iniciar.sh
+```
+
+Abra o dashboard em **http://localhost:8501**. Os logs de cada serviço ficam em `logs/`.
+
+**Terminal 2 — rede simulada** (com o ambiente virtual ativado):
+
+```bash
+# Temporal real de 30/04/2024 (início das enchentes de maio no RS)
+python -m servicos.simulador --modo replay --inicio "2024-04-29 09:00" --horas 42
+
+# Outros eventos reais de 2024
+python -m servicos.simulador --listar-eventos 10
+
+# Tempestade sintética cruzando a região de oeste para leste
+python -m servicos.simulador --modo sintetico
+```
+
+Opções úteis: `--segundos-por-hora 3` (velocidade da demo), `--ruido 0.3` (ruído de sensor barato),
+`--aquecimento 24` (horas iniciais enviadas rapidamente para formar o histórico dos atributos).
+
+> **Windows:** o `iniciar.sh` exige bash (Git Bash ou WSL). Alternativa: abrir um terminal para cada
+> comando — `mosquitto -c infra/mosquitto.conf`, `python -m servicos.ingestor`,
+> `python -m servicos.motor_alertas` e `streamlit run dashboard/app.py`.
+
+## 3. Retreinar com os dados do INMET (opcional)
+
+1. Baixe os arquivos anuais de **2015 a 2024** em **portal.inmet.gov.br/dadoshistoricos**
+   (ou direto: `https://portal.inmet.gov.br/uploads/dadoshistoricos/<ano>.zip`).
 2. Coloque os ZIPs (ou só os CSVs das 9 estações) em `dados/brutos/`. O script lê dentro dos ZIPs e
    ignora as demais estações.
+3. Rode:
+
+```bash
+python -m ia.preparar_dados      # gera dados/processados/ e relatorios/cobertura_dados.csv
+python -m ia.treinar             # gera modelos/, métricas e gráficos em relatorios/
+```
 
 | Papel | Estações |
 |---|---|
@@ -62,48 +115,8 @@ flowchart LR
 | Intermediárias | Alegrete (A826), Santiago (A833), São Gabriel (A832), Bagé (A827) |
 | Alvo principal | Santa Maria (A803) |
 
-> Para testar sem os dados reais: `python -m ia.gerar_dados_sinteticos` gera CSVs **sintéticos** no
-> mesmo formato em `dados/brutos/sinteticos/`. Não use esses resultados no relatório.
-
-## 2. Execução com Docker
-
-```bash
-cp .env.example .env                       # ajuste MQTT_PREFIXO para um valor único do grupo
-docker compose build
-
-# Preparar os dados e treinar (gera modelos/ e relatorios/)
-docker compose run --rm ia python -m ia.preparar_dados
-docker compose run --rm ia python -m ia.treinar
-
-# Subir broker, banco, ingestor, motor de alertas e dashboard
-docker compose up -d
-# Dashboard: http://localhost:8501
-
-# Rodar a rede simulada (em outro terminal)
-docker compose run --rm simulador --modo sintetico
-docker compose run --rm simulador --listar-eventos 10          # eventos reais de 2024
-docker compose run --rm simulador --modo replay --inicio "2024-05-01 00:00" --horas 42
-```
-
-## 3. Execução sem Docker
-
-```bash
-python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env                                   # opcional: os padrões já funcionam localmente
-
-python -m ia.preparar_dados
-python -m ia.treinar
-
-mosquitto -c infra/mosquitto.conf                      # terminal 1 (ou outro broker na porta 1883)
-python -m servicos.ingestor                            # terminal 2
-python -m servicos.motor_alertas                       # terminal 3
-streamlit run dashboard/app.py                         # terminal 4
-python -m servicos.simulador --modo sintetico          # terminal 5
-```
-
-Opções úteis do simulador: `--segundos-por-hora 3` (velocidade da demo), `--ruido 0.3` (ruído de sensor
-barato), `--aquecimento 24` (horas iniciais enviadas rapidamente para formar o histórico dos atributos).
+> Para testar o pipeline sem os dados reais: `python -m ia.gerar_dados_sinteticos` gera CSVs
+> **sintéticos** no mesmo formato em `dados/brutos/sinteticos/`. Não use esses resultados no relatório.
 
 ## 4. ESP32 no Wokwi
 

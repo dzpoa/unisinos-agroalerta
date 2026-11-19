@@ -1,4 +1,4 @@
-"""Acesso ao banco: PostgreSQL/TimescaleDB (Docker) ou SQLite (execução local sem Docker).
+"""Acesso ao banco: SQLite (padrão, demo local) ou PostgreSQL/TimescaleDB (via DATABASE_URL).
 
 O código usa placeholders "?"; para PostgreSQL eles são convertidos para "%s".
 """
