@@ -17,7 +17,7 @@ pulverização ou proteger a colheita: **um produtor avisa o outro**.
 flowchart LR
     subgraph Borda["Borda (propriedades rurais)"]
         ESP["Dispositivo IoT de demonstração<br/>ESP32 no Wokwi<br/>DHT22 + pressão + pluviômetro"]
-        SIM["9 estações simuladas<br/>(dados do INMET)"]
+        SIM["9 propriedades simuladas<br/>(estações do INMET)"]
     end
     subgraph Nuvem["Plataforma"]
         HIVE[("Broker público<br/>test.mosquitto.org")]
