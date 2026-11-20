@@ -124,7 +124,7 @@ def main() -> None:
         print(f"""
 Tudo no ar. Dashboard: http://localhost:8501
 Em outro terminal (com o ambiente virtual ativado), rode o simulador, por exemplo:
-  {python} -m servicos.simulador --modo replay --inicio "2024-04-29 09:00" --horas 42
+  {python} -m servicos.simulador --modo replay --inicio "2024-04-05 21:00" --horas 40
   {python} -m servicos.simulador --modo sintetico
 Ctrl+C aqui encerra tudo.""")
 

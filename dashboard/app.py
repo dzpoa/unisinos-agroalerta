@@ -192,7 +192,7 @@ with aba_modelo:
 with aba_privacidade:
     st.markdown("""
 **Privacy by design** — o que sai de cada propriedade:
-- **Célula H3** (resolução 7, ~5 km²) no lugar da coordenada GPS;
+- **Célula H3** (resolução 7, ~4 km²) no lugar da coordenada GPS;
 - **ID rotativo diário** (UUID derivado de segredo + dispositivo + data): não permite rastrear o produtor entre dias;
 - **Lista branca de campos** no ingestor: qualquer outro campo é descartado antes de gravar.
 

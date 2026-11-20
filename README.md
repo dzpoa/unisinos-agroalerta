@@ -122,8 +122,8 @@ simulador começar — isso é o esperado.
 **Terminal 2 — rede simulada:**
 
 ```bash
-# Temporal real de 30/04/2024 (início das enchentes de maio no RS)
-python -m servicos.simulador --modo replay --inicio "2024-04-29 09:00" --horas 42
+# Noite de 6 para 7/04/2024: maior chuva do ano em Santa Maria (70 mm em 3 h)
+python -m servicos.simulador --modo replay --inicio "2024-04-05 21:00" --horas 40
 
 # Outros eventos reais de 2024
 python -m servicos.simulador --listar-eventos 10
@@ -134,9 +134,16 @@ python -m servicos.simulador --modo sintetico
 
 **O que esperar:** as primeiras 24 horas do replay são o *aquecimento* (histórico para os atributos)
 e passam em segundos; o motor de alertas leva **cerca de 25–30 s** para processá-las. Depois, cada
-hora simulada leva 3 s: no mapa, as estações mudam de cor conforme o risco; por volta de
-30/04 08h UTC, Santa Maria entra em alerta. A aba *Série por estação* mostra o risco previsto e a
-chuva observada.
+hora simulada leva 3 s e, no mapa, as estações mudam de cor conforme o risco. O dashboard mostra
+os horários em **UTC** (horário de Brasília = UTC − 3):
+
+| Hora (UTC) | O que acontece |
+|---|---|
+| 06/04, 23h | Começa a chover em Uruguaiana e Quaraí, na fronteira oeste |
+| 07/04, 04h | Santa Maria entra em alerta (risco ≈ 0,44, acima do limiar 0,41) ainda **sem chuva** |
+| 07/04, 06h | 43 mm em Santa Maria, 2 horas depois do alerta |
+
+A aba *Série por estação* mostra o risco previsto e a chuva observada.
 
 Opções úteis: `--segundos-por-hora 3` (velocidade da demo), `--ruido 0.3` (ruído de sensor barato),
 `--aquecimento 24` (horas iniciais enviadas rapidamente para formar o histórico dos atributos).
@@ -181,6 +188,11 @@ Com a plataforma rodando (passo 2):
 > O Wokwi não tem sensor barométrico; o potenciômetro emula a saída de um BMP280/BME280.
 > Logo ao conectar, o ESP32 recebe a última mensagem de risco guardada no broker (mensagem *retida*):
 > é o estado da execução anterior, comportamento esperado.
+
+> **Papel do ESP32:** ele é o dispositivo IoT de demonstração. Suas leituras (pseudonimizadas, com
+> célula H3 e ID rotativo) aparecem no dashboard, e ele recebe o risco calculado para Santa Maria, mas
+> **não alimenta o modelo**: o motor de alertas usa apenas a rede de 9 propriedades simuladas
+> (estações do INMET).
 
 Como funciona: o ESP32 publica no broker público **test.mosquitto.org** (o Wokwi não alcança o
 `localhost`); a ponte do Mosquitto local traz as leituras para o sistema e devolve os alertas ao ESP32.
@@ -234,12 +246,24 @@ está antes. Em Santa Maria, os atributos mais importantes são a chuva recente 
 
 - `modelos/`: modelos treinados com os dados reais (2015–2024) — a demo funciona sem baixar os dados.
 - `dados/demo/horario_2024.parquet`: recorte de 2024 (dados públicos do INMET) para o modo replay.
-  Ex.: o temporal de **30/04/2024**, início das enchentes de maio no RS:
-  `python -m servicos.simulador --modo replay --inicio "2024-04-29 09:00" --horas 42`
+  Ex.: a noite de **6 para 7/04/2024**, maior chuva do ano em Santa Maria:
+  `python -m servicos.simulador --modo replay --inicio "2024-04-05 21:00" --horas 40`
 
 ## 6. Privacidade (LGPD)
 
-- O dispositivo **nunca envia coordenadas**: envia a **célula H3** (resolução 7, ~5 km²).
+**Por que a LGPD se aplica:**
+
+1. **Finalidade econômica:** os alertas protegem maquinário, colheita e pulverização. Não é um uso
+   particular sem fins econômicos, então a exceção do art. 4º, I não se aplica.
+2. **Há um controlador:** uma plataforma central coleta, armazena e trata os dados de todos os
+   participantes; quem a opera (uma cooperativa, uma associação ou mesmo um dos produtores) é o
+   controlador.
+3. **A rede tende a crescer:** mais estações dão previsões melhores, então ela vai além de um círculo
+   de conhecidos — é a própria proposta do projeto.
+
+**O que o sistema faz:**
+
+- O dispositivo **nunca envia coordenadas**: envia a **célula H3** (resolução 7, ~4 km²).
 - O identificador é um **UUID rotativo diário** (derivado de segredo + dispositivo + data).
 - O ingestor aplica uma **lista branca de campos**; qualquer outro é descartado antes de gravar.
 - Isto é **pseudonimização**, não anonimização (art. 12 da LGPD): em áreas rurais pouco povoadas, uma
