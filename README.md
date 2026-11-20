@@ -16,8 +16,8 @@ pulverização ou proteger a colheita: **um produtor avisa o outro**.
 ```mermaid
 flowchart LR
     subgraph Borda["Borda (propriedades rurais)"]
-        SIM["Simulador da rede<br/>9 estações (INMET)"]
-        ESP["ESP32 no Wokwi<br/>DHT22 + pluviômetro"]
+        ESP["Dispositivo IoT de demonstração<br/>ESP32 no Wokwi<br/>DHT22 + pressão + pluviômetro"]
+        SIM["9 estações simuladas<br/>(dados do INMET)"]
     end
     subgraph Nuvem["Plataforma"]
         HIVE[("Broker público<br/>test.mosquitto.org")]
@@ -27,8 +27,8 @@ flowchart LR
         MOT["Motor de alertas<br/>LightGBM"]
         DASH["Dashboard<br/>Streamlit"]
     end
-    SIM -- "leituras (H3 + ID rotativo)" --> MQ
     ESP -- "leituras (H3 + ID rotativo)" --> HIVE <-- ponte --> MQ
+    SIM -- "leituras (H3 + ID rotativo)" --> MQ
     MQ --> ING --> DB
     DB <-- "lê leituras / grava previsões" --> MOT
     MOT -- "risco / alertas" --> MQ
