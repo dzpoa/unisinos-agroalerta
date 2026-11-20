@@ -28,8 +28,9 @@ flowchart LR
         DASH["Dashboard<br/>Streamlit"]
     end
     SIM -- "leituras (H3 + ID rotativo)" --> MQ
-    ESP -- leituras --> HIVE <-- ponte --> MQ
-    MQ --> ING --> DB --> MOT
+    ESP -- "leituras (H3 + ID rotativo)" --> HIVE <-- ponte --> MQ
+    MQ --> ING --> DB
+    DB <-- "lê leituras / grava previsões" --> MOT
     MOT -- "risco / alertas" --> MQ
     HIVE -- "risco → LED/buzzer" --> ESP
     DB --> DASH

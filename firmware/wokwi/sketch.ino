@@ -86,7 +86,8 @@ void aoReceber(char* topico, byte* payload, unsigned int tamanho) {
 
 void conectarMqtt() {
   while (!mqtt.connected()) {
-    String id = "agroalerta-esp32-" + String((uint32_t)ESP.getEfuseMac(), HEX);
+    // ID de conexão aleatório a cada tentativa: o broker não consegue ligar conexões ao dispositivo
+    String id = "agroalerta-esp32-" + String(esp_random(), HEX);
     Serial.print("Conectando ao broker MQTT... ");
     if (mqtt.connect(id.c_str())) {
       Serial.println("ok");
