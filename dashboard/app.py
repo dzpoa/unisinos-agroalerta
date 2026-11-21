@@ -8,6 +8,7 @@ import json
 import sys
 from pathlib import Path
 
+import altair as alt
 import h3
 import pandas as pd
 import pydeck as pdk
@@ -167,7 +168,24 @@ with aba_dispositivo:
         c[1].metric("Umidade", f"{ultimo['umid']:.0f} %")
         c[2].metric("Pressão", f"{ultimo['pressao']:.1f} hPa")
         c[3].metric("Última leitura", f"{ultimo['recebido_em']:%H:%M:%S} UTC")
-        st.line_chart(df.set_index("recebido_em")[["temp", "umid"]], height=220)
+        atraso = (pd.Timestamp.now(tz="UTC") - pd.Timestamp(ultimo["recebido_em"]).tz_convert("UTC")).total_seconds()
+        if atraso > 30:
+            st.warning(f"Nenhuma leitura há {atraso / 60:.0f} min: confira se a simulação no Wokwi está rodando "
+                       "(o navegador pode pausar a aba do Wokwi em segundo plano).")
+        # Um gráfico por medida, cada um com sua escala; eixo do tempo em UTC, como o resto do painel.
+        graficos = [("temp", "Temperatura (°C)"), ("umid", "Umidade (%)"),
+                    ("pressao", "Pressão (hPa)"), ("precip", "Chuva por envio (mm)")]
+        for col, (var, titulo) in zip(st.columns(4), graficos):
+            base = alt.Chart(df[["recebido_em", var]].dropna(), title=titulo).encode(
+                x=alt.X("recebido_em:T", title="UTC", scale=alt.Scale(type="utc"),
+                        axis=alt.Axis(format="%H:%M", labelAngle=0, tickCount=4)),
+                y=alt.Y(f"{var}:Q", title=None, scale=alt.Scale(zero=(var == "precip")), axis=alt.Axis(format="~g")),
+                tooltip=[alt.Tooltip("recebido_em:T", title="UTC", format="%H:%M:%S", timeUnit="utchoursminutesseconds"),
+                         alt.Tooltip(f"{var}:Q", title=titulo)])
+            grafico = base.mark_bar() if var == "precip" else base.mark_line(point=True)
+            col.altair_chart(grafico.properties(height=200), use_container_width=True)
+        st.caption("Mude os valores no Wokwi: clique no DHT22 (temperatura e umidade), gire o potenciômetro "
+                   "(pressão) ou clique no botão azul (pluviômetro, 0,2 mm por clique).")
     dispositivo()
 
 with aba_modelo:
