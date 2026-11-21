@@ -188,8 +188,22 @@ Com a plataforma rodando (passo 2):
 4. Rode o replay (passo 2, terminal 2). Após o aquecimento, chega uma linha `[risco] Santa Maria: ...`
    a cada hora simulada; quando há alerta, o **LED vermelho** acende e o **buzzer** toca.
 
-**Interação na demo:** durante a simulação, clique no **DHT22** para mudar temperatura/umidade, gire o
-**potenciômetro** (pressão, 990–1025 hPa) e clique no **botão azul** (pluviômetro: 0,2 mm por pulso).
+**Ver os valores mudarem ao vivo:** com a simulação rodando, abra a aba **Dispositivo ESP32** do
+dashboard e mexa nos sensores do Wokwi:
+
+- **DHT22:** clique nele; abre um painel com dois controles deslizantes, *Temperature* e *Humidity*
+  (se só aparecer um, o painel está cortado pela borda: role a área de simulação).
+- **Potenciômetro:** gire o botão para mudar a pressão (990–1025 hPa).
+- **Pluviômetro de báscula (botão azul):** cada clique soma 0,2 mm de chuva.
+
+O valor novo aparece na próxima linha `[envio]` do Serial Monitor e, segundos depois, nos gráficos
+da aba. Dicas:
+
+- Deixe o Wokwi **visível**, em janela lado a lado com o dashboard: o navegador pausa a simulação
+  quando a aba fica em segundo plano. Se a aba *Dispositivo ESP32* avisar que não chegam leituras,
+  é isso (ou a simulação parou: clique em **▶**).
+- O percentual no topo do Wokwi (ex.: *56%*) é a velocidade da simulação em relação ao tempo real;
+  abaixo de 100%, os envios "a cada 10 s" chegam com intervalo maior. É normal.
 
 > O Wokwi não tem sensor barométrico; o potenciômetro emula a saída de um BMP280/BME280.
 > Logo ao conectar, o ESP32 recebe a última mensagem de risco guardada no broker (mensagem *retida*):
