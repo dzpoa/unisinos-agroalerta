@@ -1,13 +1,12 @@
 """Motor de alertas: a cada nova hora recebida da rede, calcula o risco de chuva forte
 nas próximas horas para cada estação e avisa as propriedades na rota da tempestade.
 
-Publica:
+Publica (mensagens assinadas com HMAC, ver comum/assinatura.py):
   <prefixo>/risco/<codigo>             estado atual (retido) — usado pelo ESP32 para o LED
   <prefixo>/alertas/estacao/<codigo>   somente quando o risco passa do limiar
 """
 from __future__ import annotations
 
-import json
 import os
 import time
 from datetime import datetime, timezone
@@ -16,6 +15,7 @@ import joblib
 import pandas as pd
 
 from comum import db
+from comum.assinatura import assinar
 from comum.config import DIR_MODELOS, PREFIXO, VARIAVEIS, estacoes
 from comum.features import montar_atributos, para_largo
 from comum.privacidade import celula
@@ -60,16 +60,16 @@ def processar(ts: pd.Timestamp, modelos: dict, est: dict, celulas: dict, cliente
         alerta = prob >= pacote["limiar"]
         linhas.append((ts.isoformat(), agora, cod, celulas[cod], prob, pacote["limiar"], alerta))
         estado = {"codigo": cod, "nome": est[cod]["nome"], "celula_h3": celulas[cod], "ts": ts.isoformat(),
-                  "probabilidade": round(prob, 3), "alerta": bool(alerta),
+                  "probabilidade": round(prob, 3), "alerta": bool(alerta), "emitido_em": agora,
                   "horizonte_h": pacote["horizonte_h"], "limiar_mm": pacote["limiar_mm"]}
         if publicar:
-            cliente.publish(f"{PREFIXO}/risco/{cod}", json.dumps(estado), qos=1, retain=True)
+            cliente.publish(f"{PREFIXO}/risco/{cod}", assinar(estado), qos=1, retain=True)
         if alerta:
             estado["mensagem"] = (f"Risco de chuva forte (≥{pacote['limiar_mm']:g} mm) em até "
                                   f"{pacote['horizonte_h']}h na região de {est[cod]['nome']}: "
                                   "recolha o maquinário e suspenda a pulverização.")
             if publicar:
-                cliente.publish(f"{PREFIXO}/alertas/estacao/{cod}", json.dumps(estado, ensure_ascii=False), qos=1)
+                cliente.publish(f"{PREFIXO}/alertas/estacao/{cod}", assinar(estado, ensure_ascii=False), qos=1)
             alertas.append(f"{est[cod]['nome']} ({prob:.0%})")
     db.executar_varios("INSERT INTO previsoes (ts, calculado_em, codigo, celula_h3, probabilidade, limiar, alerta) "
                        "VALUES (?, ?, ?, ?, ?, ?, ?)", linhas)

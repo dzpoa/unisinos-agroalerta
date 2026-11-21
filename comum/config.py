@@ -64,6 +64,8 @@ MQTT_PORTA = int(os.getenv("MQTT_PORTA", "1883"))
 PREFIXO = os.getenv("MQTT_PREFIXO", "unisinos-agroalerta")
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{RAIZ / 'dados' / 'agroalerta.db'}")
 SEGREDO_PSEUDONIMO = os.getenv("SEGREDO_PSEUDONIMO", "troque-este-segredo")
+# Chave HMAC das mensagens MQTT (a mesma do sketch do ESP32; ver comum/assinatura.py).
+CHAVE_HMAC = os.getenv("CHAVE_HMAC", "agroalerta-chave-demo")
 RESOLUCAO_H3 = int(os.getenv("RESOLUCAO_H3", "7"))
 
 

@@ -16,12 +16,12 @@ Exemplos:
 from __future__ import annotations
 
 import argparse
-import json
 import time
 
 import numpy as np
 import pandas as pd
 
+from comum.assinatura import assinar
 from comum.config import (ANO_TESTE, ESTACAO_ALVO, base_replay, HORIZONTE_H, LIMIAR_MM,
                           PREFIXO, VARIAVEIS, estacoes)
 from comum.features import para_largo
@@ -99,7 +99,7 @@ def publicar(dados: pd.DataFrame, segundos_por_hora: float, aquecimento: int, ru
                        for v in VARIAVEIS}
             payload = {"dispositivo_id": id_rotativo(r["codigo"], ts), "celula_h3": celulas[r["codigo"]],
                        "ts": ts.isoformat(), "fonte": "simulador", **leitura}
-            cliente.publish(f"{PREFIXO}/leituras/simulador/{payload['celula_h3']}", json.dumps(payload), qos=1)
+            cliente.publish(f"{PREFIXO}/leituras/simulador/{payload['celula_h3']}", assinar(payload), qos=1)
         chuva = dados[(dados["ts"] == ts) & (dados["precip"] > 0)]
         resumo = ", ".join(f"{est[c]['nome']} {p:.1f}mm" for c, p in zip(chuva["codigo"], chuva["precip"]) if c in est)
         print(f"  {ts:%Y-%m-%d %H:%M} UTC  {'chuva: ' + resumo if resumo else 'sem chuva'}")

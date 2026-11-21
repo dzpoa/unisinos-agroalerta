@@ -42,11 +42,12 @@ flowchart LR
 |---|---|
 | `ia/` | Leitura dos CSVs do INMET, engenharia de atributos, treino e avaliação dos modelos |
 | `servicos/simulador.py` | Rede de estações: reproduz eventos reais do INMET ou uma tempestade sintética |
-| `servicos/ingestor.py` | Assina o MQTT, valida e grava as leituras (descarta campos fora da lista branca) |
+| `servicos/ingestor.py` | Assina o MQTT, confere a assinatura HMAC, valida e grava as leituras (descarta campos fora da lista branca) |
+| `servicos/forjar.py` | Teste de segurança: envia mensagens forjadas e repetidas, que devem ser rejeitadas |
 | `servicos/motor_alertas.py` | A cada hora da rede, calcula o risco por estação e publica alertas no MQTT |
 | `dashboard/app.py` | Mapa ao vivo, séries por estação, ESP32, métricas do modelo e privacidade |
 | `firmware/wokwi/` | Firmware do ESP32 (simulado no Wokwi): publica leituras e reage aos alertas |
-| `comum/` | Configuração, banco, parser do INMET, atributos e pseudonimização (compartilhados) |
+| `comum/` | Configuração, banco, parser do INMET, atributos, pseudonimização e assinatura HMAC (compartilhados) |
 | `infra/` | Configuração do Mosquitto (com ponte para o broker público) |
 
 ## Pré-requisitos
@@ -187,7 +188,9 @@ Com a plataforma rodando (passo 2):
 
 > O Wokwi não tem sensor barométrico; o potenciômetro emula a saída de um BMP280/BME280.
 > Logo ao conectar, o ESP32 recebe a última mensagem de risco guardada no broker (mensagem *retida*):
-> é o estado da execução anterior, comportamento esperado.
+> é o estado da execução anterior, comportamento esperado. Se essa mensagem for de uma versão antiga
+> (sem assinatura), aparece `[risco] REJEITADO: mensagem sem assinatura` até o motor publicar o
+> primeiro risco do replay.
 
 > **Papel do ESP32:** ele é o dispositivo IoT de demonstração. Suas leituras (pseudonimizadas, com
 > célula H3 e ID rotativo) aparecem no dashboard, e ele recebe o risco calculado para Santa Maria, mas
@@ -269,6 +272,43 @@ está antes. Em Santa Maria, os atributos mais importantes são a chuva recente 
 - Isto é **pseudonimização**, não anonimização (art. 12 da LGPD): em áreas rurais pouco povoadas, uma
   célula pode corresponder a uma única propriedade.
 
+## 7. Segurança (assinatura das mensagens)
+
+Toda mensagem MQTT (leituras do simulador e do ESP32, risco e alertas do motor) vai num envelope
+assinado com **HMAC-SHA256** (`comum/assinatura.py` e `firmware/wokwi/sketch.ino`):
+
+```json
+{"carga": "{\"dispositivo_id\": \"...\", \"temp\": 24.1, ...}", "nonce": "9f3a...", "hmac": "a3f9..."}
+```
+
+- O HMAC cobre `nonce|carga`, exatamente como o texto foi enviado (o ESP32 e o Python não precisam
+  formatar os números do mesmo jeito).
+- O **ingestor** rejeita mensagens sem assinatura, com HMAC inválido (chave errada ou conteúdo
+  alterado) ou **repetidas** (guarda as últimas 1000 assinaturas; o `nonce` torna cada envio único).
+- O **ESP32** só aceita risco com HMAC válido e emitido depois do último aceito: um alerta falso
+  publicado no broker público não acende o LED.
+
+**Testar:** com a plataforma e o Wokwi rodando, em outro terminal:
+
+```bash
+python -m servicos.forjar
+```
+
+Em `logs/ingestor.log` devem aparecer três linhas `REJEITADA (segurança)` (sem assinatura, HMAC falso
+e repetida); no Serial Monitor do Wokwi, duas linhas `[risco] REJEITADO`, e o LED não muda.
+
+**Limitações:**
+
+- HMAC usa uma **chave compartilhada**: garante integridade e autenticidade, mas não não-repúdio
+  (quem verifica também consegue assinar). Em produção, o caminho seria **ECDSA**, com a chave
+  privada só no dispositivo.
+- **Chave única da rede:** uma chave por dispositivo exigiria um identificador fixo para escolher a
+  chave, o que desfaria a pseudonimização do ID diário.
+- Nesta demo a chave (`CHAVE_HMAC`) está no repositório e no projeto público do Wokwi; em produção
+  ela ficaria só no `.env` e seria gravada no dispositivo na instalação.
+- O canal **não é criptografado**: o conteúdo trafega em texto aberto. O próximo passo é TLS
+  (porta 8883) com autenticação no broker.
+
 ## Problemas comuns
 
 | Sintoma | Causa provável / solução |
@@ -278,9 +318,12 @@ está antes. Em Santa Maria, os atributos mais importantes são a chuva recente 
 | Dashboard fica em *"Aguardando dados"* com o simulador rodando | Aguarde o aquecimento (~30 s). Se persistir, veja `logs/motor.log` e `logs/ingestor.log`. |
 | ESP32 envia, mas a aba *Dispositivo ESP32* fica vazia | A ponte com o broker público não conectou. Rode `grep -i bridge logs/mosquitto.log`: deve aparecer só *Connecting bridge*, sem *disconnected*/*backoff*. |
 | A ponte cai repetidamente | Teste o acesso: `nc -vz -w 5 test.mosquitto.org 1883`. Se falhar, troque para `broker.emqx.io` em `infra/mosquitto.conf` (`address`) e no firmware (`MQTT_HOST`). |
+| `REJEITADA (segurança)` no ingestor ou `[risco] REJEITADO` no ESP32 sem ter rodado o `forjar` | Versões diferentes: atualize o repositório (`git pull`) e o `sketch.ino` no Wokwi. A chave `CHAVE_HMAC` do `.env` deve ser igual à do sketch. |
 | LED acende sem o replay estar rodando | Mensagem retida da execução anterior, ou outro integrante rodando ao mesmo tempo (veja a nota no passo 4). |
 
 ## Tópicos MQTT
+
+Todas as mensagens vão no envelope assinado descrito em *Segurança*.
 
 | Tópico | Direção | Conteúdo |
 |---|---|---|
