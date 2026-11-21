@@ -42,7 +42,7 @@ flowchart LR
 |---|---|
 | `ia/` | Leitura dos CSVs do INMET, engenharia de atributos, treino e avaliação dos modelos |
 | `servicos/simulador.py` | Rede de estações: reproduz eventos reais do INMET ou uma tempestade sintética |
-| `servicos/ingestor.py` | Assina o MQTT, confere a assinatura HMAC, valida e grava as leituras (descarta campos fora da lista branca) |
+| `servicos/ingestor.py` | Recebe as leituras do MQTT, confere a assinatura HMAC, valida e grava as leituras (descarta campos fora da lista branca) |
 | `servicos/forjar.py` | Teste de segurança: envia mensagens forjadas e repetidas, que devem ser rejeitadas |
 | `servicos/motor_alertas.py` | A cada hora da rede, calcula o risco por estação e publica alertas no MQTT |
 | `dashboard/app.py` | Mapa ao vivo, séries por estação, ESP32, métricas do modelo e privacidade |

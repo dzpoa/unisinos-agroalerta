@@ -153,7 +153,7 @@ with aba_estacao:
 
 with aba_dispositivo:
     st.markdown(f"Leituras do **ESP32 simulado no Wokwi** (tópico `{PREFIXO}/leituras/wokwi/...`). "
-                f"O dispositivo assina `{PREFIXO}/risco/{ESTACAO_ALVO}` e acende o LED quando há alerta.")
+                f"O dispositivo recebe o risco pelo tópico `{PREFIXO}/risco/{ESTACAO_ALVO}` e acende o LED quando há alerta.")
 
     @st.fragment(run_every="3s")
     def dispositivo():
