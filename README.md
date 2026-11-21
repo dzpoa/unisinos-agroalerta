@@ -120,6 +120,11 @@ Se faltar algo (Mosquitto, OpenMP, porta 1883 ocupada), ele diz o que instalar o
 Abra o dashboard em **http://localhost:8501**. Ele mostra *"Aguardando dados da rede"* até o
 simulador começar — isso é o esperado.
 
+> O banco guarda os dados entre execuções: ao abrir, o dashboard mostra a última hora do replay
+> anterior. Para começar do zero (por exemplo, antes de gravar a demo), encerre a plataforma com
+> **Ctrl+C** e rode `rm dados/agroalerta.db` (no Windows: `del dados\agroalerta.db`) antes de
+> `python iniciar.py`.
+
 **Terminal 2 — rede simulada:**
 
 ```bash
